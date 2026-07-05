@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DUOTONE — two-ink logic puzzles</title>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#eef1f7;
+  --board:#ffffff;
+  --grid:#c9d3e3;
+  --grid5:#8ca0bf;
+  --ink:#182848;
+  --ink-soft:#3a4a6e;
+  --mark:#c6402e;
+  --dim:#a3aec4;
+  --err:#e02020;
+  --cell: 40px;
+  font-size:16px;
+}
+*{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(to right, rgba(140,160,191,.13) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(140,160,191,.13) 1px, transparent 1px);
+  background-size: 22px 22px;
+  color:var(--ink);
+  display:flex; flex-direction:column; align-items:center;
+  min-height:100%;
+  padding: 14px 12px 40px;
+  user-select:none; -webkit-user-select:none;
+  touch-action: manipulation;
+}
+header{
+  width:100%; max-width:720px;
+  display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+  margin-bottom:10px;
+}
+h1{
+  font-family:'DotGothic16', monospace;
+  font-size:1.7rem; letter-spacing:.06em;
+}
+h1 .a{color:var(--ink);}
+h1 .b{color:var(--mark);}
+.streak{
+  font-family:'DotGothic16', monospace;
+  font-size:.95rem; color:var(--ink-soft);
+  white-space:nowrap;
+}
+.streak b{color:var(--mark); font-size:1.1rem;}
+nav.tabs{
+  display:flex; gap:6px; flex-wrap:wrap; justify-content:center;
+  margin-bottom:8px;
+}
+.tab{
+  font-family:'DotGothic16', monospace;
+  font-size:.9rem; letter-spacing:.04em;
+  padding:7px 14px; border:2px solid var(--ink);
+  background:var(--board); color:var(--ink);
+  cursor:pointer; border-radius:3px;
+  box-shadow: 2px 2px 0 var(--ink);
+  transition: transform .06s, box-shadow .06s, background .12s;
+}
+.tab:active{transform:translate(2px,2px); box-shadow:0 0 0 var(--ink);}
+.tab.on{background:var(--ink); color:#fff;}
+.hud{
+  width:100%; max-width:720px;
+  display:flex; align-items:center; justify-content:center; gap:12px;
+  margin-bottom:6px; flex-wrap:wrap;
+}
+.timer{
+  font-family:'DotGothic16', monospace; font-size:1.15rem;
+  font-variant-numeric: tabular-nums;
+  min-width:74px; text-align:center;
+}
+.btn{
+  font-family:'DotGothic16', monospace; font-size:.85rem;
+  padding:8px 12px; background:var(--board); color:var(--ink-soft);
+  border:2px solid var(--grid5); border-radius:3px; cursor:pointer;
+}
+.btn:active{transform:translateY(1px);}
+label.chk{
+  display:flex; align-items:center; gap:6px;
+  font-size:.8rem; color:var(--ink-soft); cursor:pointer;
+  font-family:'DotGothic16', monospace;
+}
+label.chk input{accent-color:var(--ink); width:15px; height:15px;}
+.bestlbl{
+  font-family:'DotGothic16', monospace; font-size:.8rem; color:var(--ink-soft);
+  font-variant-numeric:tabular-nums;
+  margin-bottom:8px; min-height:1em;
+}
+
+/* ---------- board ---------- */
+.stage{position:relative;}
+.wrap{
+  display:grid;
+  grid-template-columns:auto auto;
+  grid-template-rows:auto auto;
+  background:var(--board);
+  border:3px solid var(--ink);
+  border-radius:4px;
+  box-shadow: 5px 5px 0 rgba(24,40,72,.9);
+  padding:8px;
+  gap:0;
+}
+.grid{
+  display:grid;
+  border:2px solid var(--ink);
+  grid-area:1/1;
+}
+.rcnt{grid-area:1/2; display:grid; grid-auto-flow:row; padding-left:7px;}
+.ccnt{grid-area:2/1; display:grid; grid-auto-flow:column; padding-top:6px;}
+.corner{grid-area:2/2;}
+.cnt{
+  font-family:'DotGothic16', monospace;
+  font-size: calc(var(--cell) * .34);
+  line-height:1;
+  font-variant-numeric:tabular-nums;
+  color:var(--dim);
+  display:flex; align-items:center; gap:3px;
+}
+.rcnt .cnt{height:var(--cell); justify-content:flex-start;}
+.ccnt .cnt{width:var(--cell); flex-direction:column; justify-content:flex-start; gap:2px;}
+.cnt .n1{color:var(--ink);}
+.cnt .n2{color:var(--mark);}
+.cnt.done .n1, .cnt.done .n2{color:var(--dim); text-decoration:line-through;}
+.cell{
+  width:var(--cell); height:var(--cell);
+  border-right:1px solid var(--grid);
+  border-bottom:1px solid var(--grid);
+  position:relative; cursor:pointer;
+  background:var(--board);
+}
+.cell.r5{border-right:2px solid var(--grid5);}
+.cell.b5{border-bottom:2px solid var(--grid5);}
+.cell .tile{
+  position:absolute; inset:2px; border-radius:3px;
+  transform:scale(0); opacity:0;
+}
+.cell.v0 .tile{background:var(--ink); animation:stamp .13s cubic-bezier(.2,1.4,.4,1) forwards;}
+.cell.v1 .tile{background:var(--mark); animation:stamp .13s cubic-bezier(.2,1.4,.4,1) forwards;}
+@keyframes stamp{
+  0%{transform:scale(1.2) rotate(-4deg); opacity:.7;}
+  100%{transform:scale(1) rotate(0); opacity:1;}
+}
+.cell.given{cursor:default;}
+.cell.given .tile{border-radius:50%; inset:22%;}
+.cell.given.v0{background:#e6ebf4;}
+.cell.given.v1{background:#f7e8e5;}
+.cell.err::after{
+  content:""; position:absolute; inset:1px;
+  border:2px solid var(--err); border-radius:3px;
+  animation:blink .5s ease;
+  pointer-events:none;
+}
+@keyframes blink{0%{opacity:0;} 40%{opacity:1;}}
+.cell.hotc{box-shadow: inset 0 0 0 100px rgba(47,85,201,.05);}
+
+/* win state */
+.wrap.won .cell{cursor:default;}
+.wrap.won .cell .tile{
+  opacity:1; transform:scale(1);
+  animation: flip .35s ease both;
+  animation-delay: var(--d, 0s);
+}
+@keyframes flip{
+  0%{transform:scale(1);}
+  50%{transform:scale(.2) rotate(8deg);}
+  100%{transform:scale(1) rotate(0);}
+}
+.banner{
+  position:absolute; left:50%; bottom:-14px;
+  transform:translate(-50%, 100%);
+  background:var(--ink); color:#fff;
+  border-radius:4px; padding:12px 20px;
+  box-shadow:4px 4px 0 rgba(24,40,72,.35);
+  display:none; flex-direction:column; align-items:center; gap:6px;
+  z-index:5; min-width:230px; text-align:center;
+}
+.banner.show{display:flex; animation:rise .3s ease both;}
+@keyframes rise{from{opacity:0; transform:translate(-50%, 100%) translateY(10px);} to{opacity:1; transform:translate(-50%,100%);}}
+.banner .name{font-family:'DotGothic16', monospace; font-size:1.25rem; letter-spacing:.05em;}
+.banner .sub{font-size:.8rem; color:#c8d2e8; font-variant-numeric:tabular-nums;}
+.banner .sub b{color:#fff;}
+.banner button{
+  margin-top:4px;
+  font-family:'DotGothic16', monospace; font-size:.9rem;
+  background:var(--mark); color:#fff; border:none;
+  padding:8px 18px; border-radius:3px; cursor:pointer;
+  box-shadow:2px 2px 0 rgba(0,0,0,.3);
+}
+.banner button:active{transform:translate(1px,1px); box-shadow:0 0 0;}
+.hint{
+  margin-top:16px; font-size:.75rem; color:var(--ink-soft);
+  text-align:center; max-width:460px; line-height:1.6;
+  font-family:'DotGothic16', monospace;
+}
+.hint .sw{display:inline-block; width:.8em; height:.8em; border-radius:2px; vertical-align:-1px;}
+.hint .sw.a{background:var(--ink);}
+.hint .sw.b{background:var(--mark);}
+@media (max-width:520px){
+  h1{font-size:1.3rem;}
+  .hud{gap:8px;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="a">DUO</span><span class="b">TONE</span><span class="b">.</span></h1>
+  <div class="streak">streak <b id="streak">0</b></div>
+</header>
+
+<nav class="tabs" id="tabs"></nav>
+
+<div class="hud">
+  <div class="timer" id="timer">0:00</div>
+  <button class="btn" id="newBtn">↻ new puzzle</button>
+  <button class="btn" id="undoBtn">↶ undo</button>
+  <label class="chk"><input type="checkbox" id="showErr" checked> show errors</label>
+</div>
+<div class="bestlbl" id="bestlbl"></div>
+
+<div class="stage">
+  <div class="wrap" id="wrap">
+    <div class="grid" id="grid"></div>
+    <div class="rcnt" id="rcnt"></div>
+    <div class="ccnt" id="ccnt"></div>
+    <div class="corner"></div>
+  </div>
+  <div class="banner" id="banner">
+    <div class="name" id="winName"></div>
+    <div class="sub" id="winSub"></div>
+    <button id="nextBtn">next puzzle →</button>
+  </div>
+</div>
+
+<p class="hint">
+fill every square <span class="sw a"></span> or <span class="sw b"></span> ·
+no three of the same colour in a row or column ·
+each row and column gets an equal number of each.
+circles are locked givens. the small counters show how many of each colour a line still needs.
+tap to cycle · right-click cycles back · Z undoes ·
+every puzzle has exactly one solution, reachable by logic alone.
+</p>
+
+<script>
+(function(){
+"use strict";
+
+/* ================= generator ================= */
+function fullGrid(n){
+  const g=new Array(n*n).fill(-1);
+  const rc=[new Array(n).fill(0),new Array(n).fill(0)];
+  const cc=[new Array(n).fill(0),new Array(n).fill(0)];
+  const half=n/2;
+  function ok(i,v){
+    const r=(i/n)|0, c=i%n;
+    if(rc[v][r]>=half || cc[v][c]>=half) return false;
+    if(c>=2 && g[i-1]===v && g[i-2]===v) return false;
+    if(r>=2 && g[i-n]===v && g[i-2*n]===v) return false;
+    return true;
+  }
+  function place(i){
+    if(i===n*n) return true;
+    const r=(i/n)|0, c=i%n;
+    const order=Math.random()<0.5?[0,1]:[1,0];
+    for(const v of order){
+      if(!ok(i,v)) continue;
+      g[i]=v; rc[v][r]++; cc[v][c]++;
+      if(place(i+1)) return true;
+      g[i]=-1; rc[v][r]--; cc[v][c]--;
+    }
+    return false;
+  }
+  place(0);
+  return g;
+}
+
+function violatesAt(g,n,i){
+  const half=n/2;
+  const r=(i/n)|0, c=i%n, v=g[i];
+  if(v===-1) return false;
+  for(let k=Math.max(0,c-2);k<=Math.min(n-3,c);k++){
+    const a=g[r*n+k];
+    if(a!==-1 && a===g[r*n+k+1] && a===g[r*n+k+2]) return true;
+  }
+  for(let k=Math.max(0,r-2);k<=Math.min(n-3,r);k++){
+    const a=g[k*n+c];
+    if(a!==-1 && a===g[(k+1)*n+c] && a===g[(k+2)*n+c]) return true;
+  }
+  let rv=0,cv=0;
+  for(let k=0;k<n;k++){ if(g[r*n+k]===v) rv++; if(g[k*n+c]===v) cv++; }
+  return rv>half || cv>half;
+}
+
+function propSolve(g,n){
+  let changed=true;
+  while(changed){
+    changed=false;
+    for(let i=0;i<n*n;i++){
+      if(g[i]!==-1) continue;
+      g[i]=0; const bad0=violatesAt(g,n,i);
+      g[i]=1; const bad1=violatesAt(g,n,i);
+      g[i]=-1;
+      if(bad0&&bad1) return false;
+      if(bad0!==bad1){ g[i]=bad0?1:0; changed=true; }
+    }
+  }
+  return g.indexOf(-1)===-1;
+}
+
+function makePuzzle(n){
+  const sol=fullGrid(n);
+  const puz=sol.slice();
+  const idx=[...Array(n*n).keys()].sort(()=>Math.random()-0.5);
+  for(const i of idx){
+    const keep=puz[i];
+    puz[i]=-1;
+    if(!propSolve(puz.slice(),n)) puz[i]=keep;
+  }
+  return puz;
+}
+
+/* ================= state ================= */
+const SIZES=[6,8,10,12];
+let N=8;
+let puzzle=[];       // -1 unknown / 0 / 1 (givens)
+let state=[];        // player grid incl. givens
+let won=false;
+let history=[];      // undo stack: [i, prevValue]
+let startT=null, timerInt=null, elapsed=0;
+let streak=0;
+let bests={}, counts={};
+let puzzleNo=1;
+
+const $=id=>document.getElementById(id);
+const gridEl=$("grid"), wrapEl=$("wrap"), bannerEl=$("banner"),
+      rcntEl=$("rcnt"), ccntEl=$("ccnt");
+
+function fmt(sec){ const m=Math.floor(sec/60), s=sec%60; return m+":"+String(s).padStart(2,"0"); }
+
+/* ---- persistence ---- */
+const SAVE_KEY="duotone-v1";
+function saveGame(){
+  try{
+    localStorage.setItem(SAVE_KEY, JSON.stringify({
+      streak, bests, counts, puzzleNo,
+      showErr: $("showErr").checked
+    }));
+  }catch(e){}
+}
+function loadGame(){
+  try{
+    const raw=localStorage.getItem(SAVE_KEY);
+    if(!raw) return;
+    const s=JSON.parse(raw);
+    streak=s.streak||0; bests=s.bests||{}; counts=s.counts||{};
+    puzzleNo=s.puzzleNo||1;
+    if(typeof s.showErr==="boolean") $("showErr").checked=s.showErr;
+  }catch(e){}
+}
+
+/* ================= build / render ================= */
+function loadPuzzle(){
+  won=false; history=[];
+  bannerEl.classList.remove("show");
+  wrapEl.classList.remove("won");
+  puzzle=makePuzzle(N);
+  state=puzzle.slice();
+  sizeCells();
+  render();
+  resetTimer(); startTimer();
+  updateBestLabel();
+}
+
+function sizeCells(){
+  const maxW=Math.min(window.innerWidth-24, 640);
+  const cell=Math.max(24, Math.min(44, Math.floor((maxW-70)/N)));
+  document.documentElement.style.setProperty("--cell", cell+"px");
+}
+
+function render(){
+  gridEl.style.gridTemplateColumns=`repeat(${N}, var(--cell))`;
+  gridEl.innerHTML=""; rcntEl.innerHTML=""; ccntEl.innerHTML="";
+  for(let i=0;i<N*N;i++){
+    const d=document.createElement("div");
+    d.className="cell"; d.dataset.i=i;
+    const c=i%N, r=(i/N)|0;
+    if((c+1)%2===0 && c<N-1 && N>6){} // keep light
+    if((c+1)%5===0 && c<N-1) d.classList.add("r5");
+    if((r+1)%5===0 && r<N-1) d.classList.add("b5");
+    if(puzzle[i]!==-1) d.classList.add("given");
+    d.innerHTML='<div class="tile"></div>';
+    gridEl.appendChild(d);
+    paintCell(i);
+  }
+  for(let r=0;r<N;r++){
+    const d=document.createElement("div");
+    d.className="cnt"; d.dataset.r=r;
+    d.innerHTML='<span class="n1"></span><span class="n2"></span>';
+    rcntEl.appendChild(d);
+  }
+  for(let c=0;c<N;c++){
+    const d=document.createElement("div");
+    d.className="cnt"; d.dataset.c=c;
+    d.innerHTML='<span class="n1"></span><span class="n2"></span>';
+    ccntEl.appendChild(d);
+  }
+  refreshCounts();
+  refreshErrors();
+}
+
+function paintCell(i){
+  const el=gridEl.children[i];
+  el.classList.toggle("v0", state[i]===0);
+  el.classList.toggle("v1", state[i]===1);
+}
+
+/* ================= rules / status ================= */
+function refreshCounts(){
+  const half=N/2;
+  for(let r=0;r<N;r++){
+    let a=0,b=0;
+    for(let c=0;c<N;c++){ if(state[r*N+c]===0)a++; else if(state[r*N+c]===1)b++; }
+    const el=rcntEl.children[r];
+    el.children[0].textContent=Math.max(0,half-a);
+    el.children[1].textContent=Math.max(0,half-b);
+    el.classList.toggle("done", a===half&&b===half);
+  }
+  for(let c=0;c<N;c++){
+    let a=0,b=0;
+    for(let r=0;r<N;r++){ if(state[r*N+c]===0)a++; else if(state[r*N+c]===1)b++; }
+    const el=ccntEl.children[c];
+    el.children[0].textContent=Math.max(0,half-a);
+    el.children[1].textContent=Math.max(0,half-b);
+    el.classList.toggle("done", a===half&&b===half);
+  }
+}
+
+function refreshErrors(){
+  const show=$("showErr").checked && !won;
+  for(let i=0;i<N*N;i++){
+    gridEl.children[i].classList.toggle("err", show && state[i]!==-1 && violatesAt(state,N,i));
+  }
+}
+
+function isSolved(){
+  if(state.indexOf(-1)!==-1) return false;
+  for(let i=0;i<N*N;i++) if(violatesAt(state,N,i)) return false;
+  return true;
+}
+
+function doWin(){
+  won=true;
+  stopTimer();
+  streak++; $("streak").textContent=streak;
+  const key="s"+N;
+  counts[key]=(counts[key]||0)+1;
+  const prev=bests[key];
+  const isPB=prev===undefined||elapsed<prev;
+  if(isPB) bests[key]=elapsed;
+  saveGame();
+  for(let r=0;r<N;r++) for(let c=0;c<N;c++){
+    gridEl.children[r*N+c].style.setProperty("--d", ((r+c)*0.04)+"s");
+  }
+  refreshErrors();
+  wrapEl.classList.add("won");
+  $("winName").textContent="no. "+puzzleNo;
+  let sub="solved in <b>"+fmt(elapsed)+"</b>";
+  sub += isPB ? " · best for "+N+"×"+N+"!" : " · best "+fmt(bests[key]);
+  $("winSub").innerHTML=sub;
+  updateBestLabel();
+  setTimeout(()=>bannerEl.classList.add("show"), N*2*40+250);
+}
+
+function updateBestLabel(){
+  const key="s"+N;
+  const parts=[];
+  if(counts[key]) parts.push(counts[key]+" solved");
+  if(bests[key]!==undefined) parts.push("best "+fmt(bests[key]));
+  $("bestlbl").textContent=parts.join(" · ");
+}
+
+/* ================= timer ================= */
+function resetTimer(){ stopTimer(); elapsed=0; $("timer").textContent="0:00"; }
+function startTimer(){
+  startT=Date.now();
+  timerInt=setInterval(()=>{
+    elapsed=Math.floor((Date.now()-startT)/1000);
+    $("timer").textContent=fmt(elapsed);
+  },250);
+}
+function stopTimer(){ if(timerInt){clearInterval(timerInt); timerInt=null;} }
+
+/* ================= input ================= */
+function cycle(i, dir){
+  if(won || puzzle[i]!==-1) return;
+  const order=[-1,0,1];
+  const cur=order.indexOf(state[i]);
+  const nv=order[(cur+dir+3)%3];
+  history.push([i, state[i]]);
+  state[i]=nv;
+  paintCell(i);
+  refreshCounts();
+  refreshErrors();
+  if(isSolved()) doWin();
+}
+
+gridEl.addEventListener("pointerdown", e=>{
+  e.preventDefault();
+  const t=e.target.closest(".cell");
+  if(!t) return;
+  const i=+t.dataset.i;
+  cycle(i, (e.pointerType==="mouse"&&e.button===2)?-1:1);
+});
+gridEl.addEventListener("contextmenu", e=>e.preventDefault());
+
+/* hover cross highlight (desktop) */
+gridEl.addEventListener("pointermove", e=>{
+  if(e.pointerType!=="mouse") return;
+  [...gridEl.children].forEach(el=>el.classList.remove("hotc"));
+  const t=e.target.closest(".cell");
+  if(!t || won) return;
+  const i=+t.dataset.i, r=(i/N)|0, c=i%N;
+  for(let k=0;k<N;k++){
+    gridEl.children[r*N+k].classList.add("hotc");
+    gridEl.children[k*N+c].classList.add("hotc");
+  }
+});
+gridEl.addEventListener("pointerleave", ()=>{
+  [...gridEl.children].forEach(el=>el.classList.remove("hotc"));
+});
+
+function undo(){
+  if(won || !history.length) return;
+  const [i,v]=history.pop();
+  state[i]=v;
+  paintCell(i);
+  refreshCounts();
+  refreshErrors();
+}
+
+$("newBtn").onclick=()=>{ puzzleNo++; saveGame(); loadPuzzle(); };
+$("undoBtn").onclick=undo;
+$("nextBtn").onclick=()=>{ puzzleNo++; saveGame(); loadPuzzle(); };
+$("showErr").addEventListener("change", ()=>{ refreshErrors(); saveGame(); });
+window.addEventListener("keydown", e=>{
+  if(e.key==="z"||e.key==="Z") undo();
+  if(e.key==="n"||e.key==="N"){ puzzleNo++; saveGame(); loadPuzzle(); }
+});
+
+/* ================= tabs ================= */
+SIZES.forEach(n=>{
+  const b=document.createElement("button");
+  b.className="tab"+(n===N?" on":"");
+  b.textContent=n+"×"+n;
+  b.onclick=()=>{
+    N=n;
+    [...$("tabs").children].forEach((el,i)=>el.classList.toggle("on", SIZES[i]===n));
+    loadPuzzle();
+  };
+  $("tabs").appendChild(b);
+});
+
+window.addEventListener("resize", ()=>{ if(N) sizeCells(); });
+
+loadGame();
+$("streak").textContent=streak;
+loadPuzzle();
+})();
+</script>
+</body>
+</html>
